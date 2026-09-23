@@ -1,0 +1,86 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+
+class ProviderDashboardScreen extends StatelessWidget {
+  const ProviderDashboardScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Provider Dashboard'),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          const Icon(
+            Icons.business_center,
+            size: 72,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Welcome, Service Provider',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            user?.email ?? '',
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.storefront),
+              title: const Text('My Service Profile'),
+              subtitle: const Text(
+                'Create or update the services you offer',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Provider profile setup is coming next',
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.inbox),
+              title: const Text('Incoming Requests'),
+              subtitle: const Text(
+                'View requests submitted by customers',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Incoming requests will appear here',
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const Card(
+            child: ListTile(
+              leading: Icon(Icons.star),
+              title: Text('Ratings and Reviews'),
+              subtitle: Text(
+                'View feedback from customers',
+              ),
+              trailing: Icon(Icons.chevron_right),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

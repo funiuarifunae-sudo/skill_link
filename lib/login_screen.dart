@@ -1,7 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
 import 'registration_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'provider_dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final Widget destination;
@@ -50,17 +51,45 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      final credential =
+    await FirebaseAuth.instance.signInWithEmailAndPassword(
+  email: email,
+  password: password,
+);
+
+final user = credential.user;
+var role = 'customer';
+
+if (user != null) {
+
+  final profileReference = FirebaseFirestore.instance
+      .collection('users')
+      .doc(user.uid);
+
+  final profile = await profileReference.get();
+
+if (profile.exists) {
+  role = profile.data()?['role'] as String? ?? 'customer';
+}
+
+if (!profile.exists) {
+    await profileReference.set({
+      'name': email.split('@').first,
+      'email': email,
+      'role': 'customer',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+}
 
       if (!mounted) return;
 
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => widget.destination,
+          builder: (context) => role == 'provider'
+    ? const ProviderDashboardScreen()
+    : widget.destination,
         ),
       );
     } on FirebaseAuthException catch (error) {

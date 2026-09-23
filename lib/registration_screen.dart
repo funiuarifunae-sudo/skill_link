@@ -1,5 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'provider_dashboard_screen.dart';
 
 class RegistrationScreen extends StatefulWidget {
   final Widget destination;
@@ -14,14 +16,17 @@ class RegistrationScreen extends StatefulWidget {
 }
 
 class _RegistrationScreenState extends State<RegistrationScreen> {
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
+  String _selectedRole = 'Customer';
   bool _isLoading = false;
 
   @override
   void dispose() {
+    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -37,11 +42,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
 
   Future<void> _register() async {
+    final name = _nameController.text.trim();
     final email = _emailController.text.trim();
     final password = _passwordController.text;
     final confirmedPassword = _confirmPasswordController.text;
 
-    if (email.isEmpty ||
+    if (name.isEmpty ||
+        email.isEmpty ||
         password.isEmpty ||
         confirmedPassword.isEmpty) {
       _showMessage('Please complete all fields');
@@ -63,17 +70,38 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     });
 
     try {
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      final credential =
+          await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
+
+      final user = credential.user;
+
+      if (user == null) {
+        throw Exception('Account could not be created');
+      }
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .set({
+        'name': name,
+        'email': email,
+        'role': _selectedRole == 'Customer'
+            ? 'customer'
+            : 'provider',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
 
       if (!mounted) return;
 
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => widget.destination,
+          builder: (context) => _selectedRole == 'Customer'
+    ? widget.destination
+    : const ProviderDashboardScreen(),
         ),
       );
     } on FirebaseAuthException catch (error) {
@@ -88,6 +116,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       } else {
         _showMessage(error.message ?? 'Registration failed');
       }
+    } catch (error) {
+      if (!mounted) return;
+      _showMessage('Registration failed: $error');
     } finally {
       if (mounted) {
         setState(() {
@@ -119,6 +150,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 ),
                 const SizedBox(height: 24),
                 TextField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Full name',
+                    prefixIcon: Icon(Icons.person),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
@@ -126,6 +166,32 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     prefixIcon: Icon(Icons.email),
                     border: OutlineInputBorder(),
                   ),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedRole,
+                  decoration: const InputDecoration(
+                    labelText: 'Account type',
+                    prefixIcon: Icon(Icons.badge),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'Customer',
+                      child: Text('Customer'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Service Provider',
+                      child: Text('Service Provider'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+
+                    setState(() {
+                      _selectedRole = value;
+                    });
+                  },
                 ),
                 const SizedBox(height: 16),
                 TextField(
