@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ProviderDetailScreen extends StatelessWidget {
   final String name;
@@ -66,13 +68,47 @@ class ProviderDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Service request submitted'),
-                  ),
-                );
-              },
+              onPressed: () async {
+  final user = FirebaseAuth.instance.currentUser;
+
+  if (user == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Please log in before requesting a service'),
+      ),
+    );
+    return;
+  }
+
+  try {
+    await FirebaseFirestore.instance
+        .collection('serviceRequests')
+        .add({
+      'customerId': user.uid,
+      'customerEmail': user.email,
+      'providerName': name,
+      'specialty': specialty,
+      'status': 'Pending',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Service request submitted'),
+      ),
+    );
+  } catch (error) {
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Request failed: $error'),
+      ),
+    );
+  }
+},
               child: const Text('Request Service'),
             ),
           ],

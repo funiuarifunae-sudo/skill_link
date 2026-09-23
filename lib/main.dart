@@ -4,6 +4,7 @@ import 'firebase_options.dart';
 import 'categories_screen.dart';
 import 'login_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'my_requests_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -93,6 +94,18 @@ class _MyHomePageState extends State<MyHomePage> {
   backgroundColor: Theme.of(context).colorScheme.inversePrimary,
   title: Text(widget.title),
   actions: [
+    IconButton(
+  tooltip: 'My requests',
+  icon: const Icon(Icons.receipt_long),
+  onPressed: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const MyRequestsScreen(),
+      ),
+    );
+  },
+),
     IconButton(
       tooltip: 'Log out',
       icon: const Icon(Icons.logout),
