@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'provider_profile_form_screen.dart';
 import 'incoming_requests_screen.dart';
+import 'provider_reviews_screen.dart';
 
 class ProviderDashboardScreen extends StatelessWidget {
   const ProviderDashboardScreen({super.key});
@@ -71,16 +72,24 @@ class ProviderDashboardScreen extends StatelessWidget {
               },
             ),
           ),
-          const Card(
-            child: ListTile(
-              leading: Icon(Icons.star),
-              title: Text('Ratings and Reviews'),
-              subtitle: Text(
-                'View feedback from customers',
-              ),
-              trailing: Icon(Icons.chevron_right),
-            ),
-          ),
+          Card(
+  child: ListTile(
+    leading: const Icon(Icons.star),
+    title: const Text('Ratings and Reviews'),
+    subtitle: const Text(
+      'View feedback from customers',
+    ),
+    trailing: const Icon(Icons.chevron_right),
+    onTap: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const ProviderReviewsScreen(),
+        ),
+      );
+    },
+  ),
+),
         ],
       ),
     );
