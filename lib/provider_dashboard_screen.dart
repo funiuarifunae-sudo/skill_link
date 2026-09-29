@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'provider_profile_form_screen.dart';
+import 'incoming_requests_screen.dart';
 
 class ProviderDashboardScreen extends StatelessWidget {
   const ProviderDashboardScreen({super.key});
@@ -59,13 +60,13 @@ class ProviderDashboardScreen extends StatelessWidget {
                 'View requests submitted by customers',
               ),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Incoming requests will appear here',
-                    ),
-                  ),
+               onTap: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const IncomingRequestsScreen(),
+      ),
+                  
                 );
               },
             ),
