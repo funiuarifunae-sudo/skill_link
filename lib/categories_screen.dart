@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'provider_list_screen.dart';
 
 class CategoriesScreen extends StatelessWidget {
@@ -6,52 +7,55 @@ class CategoriesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final categories = [
+      {
+        'name': 'Tutors',
+        'icon': Icons.school,
+      },
+      {
+        'name': 'Electricians',
+        'icon': Icons.electrical_services,
+      },
+      {
+        'name': 'Plumbers',
+        'icon': Icons.plumbing,
+      },
+      {
+        'name': 'Cleaning Services',
+        'icon': Icons.cleaning_services,
+      },
+    ];
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Service Categories'),
       ),
-      body: ListView(
+      body: ListView.builder(
         padding: const EdgeInsets.all(16),
-        children: [
-          Card(
+        itemCount: categories.length,
+        itemBuilder: (context, index) {
+          final category = categories[index];
+          final categoryName = category['name'] as String;
+          final categoryIcon = category['icon'] as IconData;
+
+          return Card(
             child: ListTile(
-              leading: Icon(Icons.school),
-              title: Text('Tutors'),
+              leading: Icon(categoryIcon),
+              title: Text(categoryName),
+              trailing: const Icon(Icons.chevron_right),
               onTap: () {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => const ProviderListScreen(
-        category: 'Tutors',
-      ),
-    ),
-  );
-},
-              trailing: Icon(Icons.chevron_right),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ProviderListScreen(
+                      category: categoryName,
+                    ),
+                  ),
+                );
+              },
             ),
-          ),
-          Card(
-            child: ListTile(
-              leading: Icon(Icons.electrical_services),
-              title: Text('Electricians'),
-              trailing: Icon(Icons.chevron_right),
-            ),
-          ),
-          Card(
-            child: ListTile(
-              leading: Icon(Icons.plumbing),
-              title: Text('Plumbers'),
-              trailing: Icon(Icons.chevron_right),
-            ),
-          ),
-          Card(
-            child: ListTile(
-              leading: Icon(Icons.cleaning_services),
-              title: Text('Cleaning Services'),
-              trailing: Icon(Icons.chevron_right),
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
