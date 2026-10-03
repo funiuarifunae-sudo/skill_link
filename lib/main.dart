@@ -5,6 +5,7 @@ import 'categories_screen.dart';
 import 'login_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'my_requests_screen.dart';
+import 'provider_search_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -165,10 +166,17 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Find services',
-        child: const Icon(Icons.search),
+  onPressed: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const ProviderSearchScreen(),
       ),
+    );
+  },
+  tooltip: 'Search services',
+  child: const Icon(Icons.search),
+),
     );
   }
 }
