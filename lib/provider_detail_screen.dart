@@ -52,10 +52,44 @@ class ProviderDetailScreen extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
-            Text(
-              'Rating: $rating',
-              textAlign: TextAlign.center,
-            ),
+            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+  stream: FirebaseFirestore.instance
+      .collection('reviews')
+      .where('providerId', isEqualTo: providerId)
+      .snapshots(),
+  builder: (context, snapshot) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return const Text(
+        'Loading rating...',
+        textAlign: TextAlign.center,
+      );
+    }
+
+    final reviews = snapshot.data?.docs ?? [];
+
+    if (reviews.isEmpty) {
+      return const Text(
+        'No ratings yet',
+        textAlign: TextAlign.center,
+      );
+    }
+
+    double total = 0;
+
+    for (final review in reviews) {
+      total +=
+          (review.data()['rating'] as num?)?.toDouble() ?? 0.0;
+    }
+
+    final average = total / reviews.length;
+
+    return Text(
+      'Rating: ${average.toStringAsFixed(1)} '
+      '(${reviews.length} review(s))',
+      textAlign: TextAlign.center,
+    );
+  },
+),
             const SizedBox(height: 24),
             Card(
               child: Padding(
