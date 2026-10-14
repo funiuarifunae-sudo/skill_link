@@ -1,17 +1,52 @@
-# skill_link
+# SkillLink
 
-A new Flutter project.
+SkillLink is a Flutter application that connects customers with trusted local service providers.
 
-## Getting Started
+## Main Features
 
-This project is a starting point for a Flutter application.
+### Customer features
 
-A few resources to get you started if this is your first Flutter project:
+- Register and log in securely
+- Browse service categories
+- Search for providers by name, category, description, or location
+- View provider profiles and ratings
+- Submit service requests
+- Track request status
+- Rate and review completed services
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+### Service-provider features
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- Register as a service provider
+- Create and update a service profile
+- Receive customer requests
+- Accept, decline, and complete requests
+- View customer ratings and reviews
+
+## Service Categories
+
+- Tutors
+- Electricians
+- Plumbers
+- Cleaning Services
+
+## Technologies Used
+
+- Flutter
+- Dart
+- Firebase Authentication
+- Cloud Firestore
+- Git
+
+## Firebase Collections
+
+- `users`
+- `providerProfiles`
+- `serviceRequests`
+- `reviews`
+
+## Running the Application
+
+Install the project dependencies:
+
+```bash
+flutter pub get
