@@ -14,7 +14,31 @@ class ProviderSearchScreen extends StatefulWidget {
 class _ProviderSearchScreenState
     extends State<ProviderSearchScreen> {
   final searchController = TextEditingController();
+
   String searchText = '';
+  bool availableOnly = false;
+
+  String availabilityLabel(String status) {
+    switch (status) {
+      case 'available':
+        return 'Available Now';
+      case 'busy':
+        return 'Busy';
+      default:
+        return 'Offline';
+    }
+  }
+
+  Color availabilityColor(String status) {
+    switch (status) {
+      case 'available':
+        return Colors.green;
+      case 'busy':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
 
   @override
   void dispose() {
@@ -35,7 +59,7 @@ class _ProviderSearchScreenState
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
             child: TextField(
               controller: searchController,
               onChanged: (value) {
@@ -63,6 +87,16 @@ class _ProviderSearchScreenState
               ),
             ),
           ),
+          SwitchListTile(
+            title: const Text('Show available providers only'),
+            secondary: const Icon(Icons.online_prediction),
+            value: availableOnly,
+            onChanged: (value) {
+              setState(() {
+                availableOnly = value;
+              });
+            },
+          ),
           Expanded(
             child: StreamBuilder<
                 QuerySnapshot<Map<String, dynamic>>>(
@@ -84,13 +118,14 @@ class _ProviderSearchScreenState
                 }
 
                 final allProviders = snapshot.data?.docs ?? [];
+
                 if (searchText.isEmpty) {
-  return const Center(
-    child: Text(
-      'Enter a provider, service, or location to search',
-    ),
-  );
-}
+                  return const Center(
+                    child: Text(
+                      'Enter a provider, service, or location to search',
+                    ),
+                  );
+                }
 
                 final providers = allProviders.where((document) {
                   final data = document.data();
@@ -107,11 +142,20 @@ class _ProviderSearchScreenState
                   final description =
                       (data['description'] as String? ?? '')
                           .toLowerCase();
+                  final status =
+                      data['availabilityStatus'] as String? ??
+                          'offline';
 
-                  return businessName.contains(searchText) ||
-                      category.contains(searchText) ||
-                      location.contains(searchText) ||
-                      description.contains(searchText);
+                  final matchesSearch =
+                      businessName.contains(searchText) ||
+                          category.contains(searchText) ||
+                          location.contains(searchText) ||
+                          description.contains(searchText);
+
+                  final matchesAvailability =
+                      !availableOnly || status == 'available';
+
+                  return matchesSearch && matchesAvailability;
                 }).toList();
 
                 if (providers.isEmpty) {
@@ -148,6 +192,9 @@ class _ProviderSearchScreenState
                         (provider['averageRating'] as num?)
                                 ?.toDouble() ??
                             0.0;
+                    final availabilityStatus =
+                        provider['availabilityStatus'] as String? ??
+                            'offline';
 
                     return Card(
                       child: ListTile(
@@ -155,8 +202,37 @@ class _ProviderSearchScreenState
                           child: Icon(Icons.person),
                         ),
                         title: Text(name),
-                        subtitle: Text(
-                          '$category\n$location',
+                        subtitle: Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.circle,
+                                  size: 12,
+                                  color: availabilityColor(
+                                    availabilityStatus,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  availabilityLabel(
+                                    availabilityStatus,
+                                  ),
+                                  style: TextStyle(
+                                    color: availabilityColor(
+                                      availabilityStatus,
+                                    ),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text('$category\n$location'),
+                          ],
                         ),
                         isThreeLine: true,
                         trailing:

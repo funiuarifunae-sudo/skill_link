@@ -23,26 +23,49 @@ class ProviderDetailScreen extends StatelessWidget {
     required this.priceRange,
   });
 
-  Future<void> openMap(BuildContext context) async {
-  final encodedLocation = Uri.encodeComponent(location);
-
-  final mapUrl = Uri.parse(
-    'https://www.google.com/maps/search/?api=1&query=$encodedLocation',
-  );
-
-  final opened = await launchUrl(
-    mapUrl,
-    mode: LaunchMode.externalApplication,
-  );
-
-  if (!opened && context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Unable to open Google Maps'),
-      ),
-    );
+  String availabilityLabel(String status) {
+    switch (status) {
+      case 'available':
+        return 'Available Now';
+      case 'busy':
+        return 'Busy';
+      default:
+        return 'Offline';
+    }
   }
-}
+
+  Color availabilityColor(String status) {
+    switch (status) {
+      case 'available':
+        return Colors.green;
+      case 'busy':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Future<void> openMap(BuildContext context) async {
+    final encodedLocation = Uri.encodeComponent(location);
+
+    final mapUrl = Uri.parse(
+      'https://www.google.com/maps/search/'
+      '?api=1&query=$encodedLocation',
+    );
+
+    final opened = await launchUrl(
+      mapUrl,
+      mode: LaunchMode.externalApplication,
+    );
+
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to open Google Maps'),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -73,45 +96,82 @@ class ProviderDetailScreen extends StatelessWidget {
               specialty,
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
-            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-  stream: FirebaseFirestore.instance
-      .collection('reviews')
-      .where('providerId', isEqualTo: providerId)
-      .snapshots(),
-  builder: (context, snapshot) {
-    if (snapshot.connectionState == ConnectionState.waiting) {
-      return const Text(
-        'Loading rating...',
-        textAlign: TextAlign.center,
-      );
-    }
+            const SizedBox(height: 12),
+            StreamBuilder<
+                DocumentSnapshot<Map<String, dynamic>>>(
+              stream: FirebaseFirestore.instance
+                  .collection('providerProfiles')
+                  .doc(providerId)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                final data = snapshot.data?.data();
+                final status =
+                    data?['availabilityStatus'] as String? ??
+                        'offline';
 
-    final reviews = snapshot.data?.docs ?? [];
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.circle,
+                      size: 14,
+                      color: availabilityColor(status),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      availabilityLabel(status),
+                      style: TextStyle(
+                        color: availabilityColor(status),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            StreamBuilder<
+                QuerySnapshot<Map<String, dynamic>>>(
+              stream: FirebaseFirestore.instance
+                  .collection('reviews')
+                  .where('providerId', isEqualTo: providerId)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState ==
+                    ConnectionState.waiting) {
+                  return const Text(
+                    'Loading rating...',
+                    textAlign: TextAlign.center,
+                  );
+                }
 
-    if (reviews.isEmpty) {
-      return const Text(
-        'No ratings yet',
-        textAlign: TextAlign.center,
-      );
-    }
+                final reviews = snapshot.data?.docs ?? [];
 
-    double total = 0;
+                if (reviews.isEmpty) {
+                  return const Text(
+                    'No ratings yet',
+                    textAlign: TextAlign.center,
+                  );
+                }
 
-    for (final review in reviews) {
-      total +=
-          (review.data()['rating'] as num?)?.toDouble() ?? 0.0;
-    }
+                double total = 0;
 
-    final average = total / reviews.length;
+                for (final review in reviews) {
+                  total +=
+                      (review.data()['rating'] as num?)
+                              ?.toDouble() ??
+                          0.0;
+                }
 
-    return Text(
-      'Rating: ${average.toStringAsFixed(1)} '
-      '(${reviews.length} review(s))',
-      textAlign: TextAlign.center,
-    );
-  },
-),
+                final average = total / reviews.length;
+
+                return Text(
+                  'Rating: ${average.toStringAsFixed(1)} '
+                  '(${reviews.length} review(s))',
+                  textAlign: TextAlign.center,
+                );
+              },
+            ),
             const SizedBox(height: 24),
             Card(
               child: Padding(
@@ -128,12 +188,12 @@ class ProviderDetailScreen extends StatelessWidget {
               ),
             ),
             OutlinedButton.icon(
-  onPressed: () {
-    openMap(context);
-  },
-  icon: const Icon(Icons.map),
-  label: const Text('View on Google Maps'),
-),
+              onPressed: () {
+                openMap(context);
+              },
+              icon: const Icon(Icons.map),
+              label: const Text('View on Google Maps'),
+            ),
             Card(
               child: ListTile(
                 leading: const Icon(Icons.payments),

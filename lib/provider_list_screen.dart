@@ -11,6 +11,28 @@ class ProviderListScreen extends StatelessWidget {
     required this.category,
   });
 
+  String availabilityLabel(String status) {
+    switch (status) {
+      case 'available':
+        return 'Available Now';
+      case 'busy':
+        return 'Busy';
+      default:
+        return 'Offline';
+    }
+  }
+
+  Color availabilityColor(String status) {
+    switch (status) {
+      case 'available':
+        return Colors.green;
+      case 'busy':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final providersStream = FirebaseFirestore.instance
@@ -57,15 +79,23 @@ class ProviderListScreen extends StatelessWidget {
               final provider = document.data();
 
               final name =
-                  provider['businessName'] as String? ?? 'Unnamed provider';
+                  provider['businessName'] as String? ??
+                      'Unnamed provider';
               final location =
-                  provider['location'] as String? ?? 'Location unavailable';
+                  provider['location'] as String? ??
+                      'Location unavailable';
               final priceRange =
-                  provider['priceRange'] as String? ?? 'Price unavailable';
+                  provider['priceRange'] as String? ??
+                      'Price unavailable';
               final description =
-                  provider['description'] as String? ?? 'No description';
+                  provider['description'] as String? ??
+                      'No description';
               final rating =
-                  (provider['averageRating'] as num?)?.toDouble() ?? 0.0;
+                  (provider['averageRating'] as num?)?.toDouble() ??
+                      0.0;
+              final availabilityStatus =
+                  provider['availabilityStatus'] as String? ??
+                      'offline';
 
               return Card(
                 child: ListTile(
@@ -73,8 +103,36 @@ class ProviderListScreen extends StatelessWidget {
                     child: Icon(Icons.person),
                   ),
                   title: Text(name),
-                  subtitle: Text(
-                    '$location\n$priceRange',
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.circle,
+                            size: 12,
+                            color: availabilityColor(
+                              availabilityStatus,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            availabilityLabel(
+                              availabilityStatus,
+                            ),
+                            style: TextStyle(
+                              color: availabilityColor(
+                                availabilityStatus,
+                              ),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text('$location\n$priceRange'),
+                    ],
                   ),
                   isThreeLine: true,
                   trailing: const Icon(Icons.chevron_right),
