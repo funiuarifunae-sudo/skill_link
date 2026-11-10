@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ProviderDetailScreen extends StatelessWidget {
   final String providerId;
@@ -21,6 +22,27 @@ class ProviderDetailScreen extends StatelessWidget {
     required this.location,
     required this.priceRange,
   });
+
+  Future<void> openMap(BuildContext context) async {
+  final encodedLocation = Uri.encodeComponent(location);
+
+  final mapUrl = Uri.parse(
+    'https://www.google.com/maps/search/?api=1&query=$encodedLocation',
+  );
+
+  final opened = await launchUrl(
+    mapUrl,
+    mode: LaunchMode.externalApplication,
+  );
+
+  if (!opened && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Unable to open Google Maps'),
+      ),
+    );
+  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -105,6 +127,13 @@ class ProviderDetailScreen extends StatelessWidget {
                 subtitle: const Text('Service area'),
               ),
             ),
+            OutlinedButton.icon(
+  onPressed: () {
+    openMap(context);
+  },
+  icon: const Icon(Icons.map),
+  label: const Text('View on Google Maps'),
+),
             Card(
               child: ListTile(
                 leading: const Icon(Icons.payments),
