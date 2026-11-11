@@ -208,6 +208,16 @@ class _ProviderDetailScreenState
       );
       return;
     }
+    if (user.uid == widget.providerId) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text(
+        'You cannot request your own service',
+      ),
+    ),
+  );
+  return;
+}
 
     try {
       final providerProfile =

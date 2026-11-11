@@ -2,10 +2,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import 'categories_screen.dart';
 import 'incoming_requests_screen.dart';
 import 'manage_services_screen.dart';
+import 'my_requests_screen.dart';
 import 'provider_profile_form_screen.dart';
 import 'provider_reviews_screen.dart';
+import 'provider_search_screen.dart';
 
 class ProviderDashboardScreen extends StatelessWidget {
   const ProviderDashboardScreen({super.key});
@@ -247,7 +250,19 @@ class ProviderDashboardScreen extends StatelessWidget {
               },
             ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
+
+          Text(
+            'Provider Tools',
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+
+          const SizedBox(height: 8),
 
           Card(
             child: ListTile(
@@ -350,6 +365,107 @@ class ProviderDashboardScreen extends StatelessWidget {
                   MaterialPageRoute(
                     builder: (_) =>
                         const ProviderReviewsScreen(),
+                  ),
+                );
+              },
+            ),
+          ),
+
+          const SizedBox(height: 28),
+
+          Text(
+            'Find Services for Yourself',
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+
+          const SizedBox(height: 6),
+
+          const Text(
+            'Provider accounts can also hire '
+            'other SkillLink providers.',
+          ),
+
+          const SizedBox(height: 10),
+
+          Card(
+            child: ListTile(
+              leading: const Icon(
+                Icons.grid_view,
+              ),
+              title: const Text(
+                'Browse Services',
+              ),
+              subtitle: const Text(
+                'Browse all service categories',
+              ),
+              trailing: const Icon(
+                Icons.chevron_right,
+              ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        const CategoriesScreen(),
+                  ),
+                );
+              },
+            ),
+          ),
+
+          Card(
+            child: ListTile(
+              leading: const Icon(
+                Icons.search,
+              ),
+              title: const Text(
+                'Search Providers',
+              ),
+              subtitle: const Text(
+                'Search by service, provider '
+                'or location',
+              ),
+              trailing: const Icon(
+                Icons.chevron_right,
+              ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        const ProviderSearchScreen(),
+                  ),
+                );
+              },
+            ),
+          ),
+
+          Card(
+            child: ListTile(
+              leading: const Icon(
+                Icons.receipt_long,
+              ),
+              title: const Text(
+                'My Requests',
+              ),
+              subtitle: const Text(
+                'Track services you requested '
+                'from other providers',
+              ),
+              trailing: const Icon(
+                Icons.chevron_right,
+              ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        const MyRequestsScreen(),
                   ),
                 );
               },
