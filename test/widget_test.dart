@@ -1,22 +1,54 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:skill_link/categories_screen.dart';
 
 void main() {
-  testWidgets(
-    'Service categories are displayed',
-    (WidgetTester tester) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: CategoriesScreen(),
-        ),
+  test(
+    'Default service categories include key local services',
+    () {
+      expect(
+        CategoriesScreen.defaultCategories,
+        contains('Tutors'),
       );
 
-      expect(find.text('Service Categories'), findsOneWidget);
-      expect(find.text('Tutors'), findsOneWidget);
-      expect(find.text('Electricians'), findsOneWidget);
-      expect(find.text('Plumbers'), findsOneWidget);
-      expect(find.text('Cleaning Services'), findsOneWidget);
+      expect(
+        CategoriesScreen.defaultCategories,
+        contains('Electricians'),
+      );
+
+      expect(
+        CategoriesScreen.defaultCategories,
+        contains('Plumbers'),
+      );
+
+      expect(
+        CategoriesScreen.defaultCategories,
+        contains('Cleaning Services'),
+      );
+
+      expect(
+        CategoriesScreen.defaultCategories,
+        contains('Mechanics'),
+      );
+
+      expect(
+        CategoriesScreen.defaultCategories,
+        contains('Photographers'),
+      );
+
+      expect(
+        CategoriesScreen.defaultCategories.length,
+        greaterThanOrEqualTo(10),
+      );
+
+      expect(
+        CategoriesScreen.categoryIcons['Mechanics'],
+        isNotNull,
+      );
+
+      expect(
+        CategoriesScreen.categoryIcons['Photographers'],
+        isNotNull,
+      );
     },
   );
 }

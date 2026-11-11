@@ -12,7 +12,22 @@ class ProviderProfileFormScreen extends StatefulWidget {
 
 class _ProviderProfileFormScreenState
     extends State<ProviderProfileFormScreen> {
+  static const List<String> _categories = [
+    'Tutors',
+    'Electricians',
+    'Plumbers',
+    'Cleaning Services',
+    'Mechanics',
+    'Photographers',
+    'Gardening',
+    'Beauty and Wellness',
+    'Catering',
+    'IT and Tech Support',
+    'Other Service',
+  ];
+
   final _businessNameController = TextEditingController();
+  final _customCategoryController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _locationController = TextEditingController();
   final _priceRangeController = TextEditingController();
@@ -30,6 +45,7 @@ class _ProviderProfileFormScreenState
   @override
   void dispose() {
     _businessNameController.dispose();
+    _customCategoryController.dispose();
     _descriptionController.dispose();
     _locationController.dispose();
     _priceRangeController.dispose();
@@ -40,36 +56,56 @@ class _ProviderProfileFormScreenState
     final user = FirebaseAuth.instance.currentUser;
 
     if (user == null) {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
       return;
     }
 
-    final profile = await FirebaseFirestore.instance
-        .collection('providerProfiles')
-        .doc(user.uid)
-        .get();
+    try {
+      final profile = await FirebaseFirestore.instance
+          .collection('providerProfiles')
+          .doc(user.uid)
+          .get();
 
-    if (profile.exists) {
-      final data = profile.data();
+      if (profile.exists) {
+        final data = profile.data();
 
-      _businessNameController.text =
-          data?['businessName'] as String? ?? '';
-      _descriptionController.text =
-          data?['description'] as String? ?? '';
-      _locationController.text =
-          data?['location'] as String? ?? '';
-      _priceRangeController.text =
-          data?['priceRange'] as String? ?? '';
-      _selectedCategory =
-          data?['category'] as String? ?? 'Tutors';
-    }
+        _businessNameController.text =
+            data?['businessName'] as String? ?? '';
+        _descriptionController.text =
+            data?['description'] as String? ?? '';
+        _locationController.text =
+            data?['location'] as String? ?? '';
+        _priceRangeController.text =
+            data?['priceRange'] as String? ?? '';
 
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
+        final savedCategory =
+            data?['category'] as String? ?? 'Tutors';
+
+        if (_categories.contains(savedCategory) &&
+            savedCategory != 'Other Service') {
+          _selectedCategory = savedCategory;
+        } else {
+          _selectedCategory = 'Other Service';
+
+          if (savedCategory != 'Other Service') {
+            _customCategoryController.text = savedCategory;
+          }
+        }
+      }
+    } catch (error) {
+      if (mounted) {
+        _showMessage('Unable to load profile: $error');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -83,10 +119,18 @@ class _ProviderProfileFormScreenState
 
   Future<void> _saveProfile() async {
     final user = FirebaseAuth.instance.currentUser;
-    final businessName = _businessNameController.text.trim();
-    final description = _descriptionController.text.trim();
+
+    final businessName =
+        _businessNameController.text.trim();
+    final description =
+        _descriptionController.text.trim();
     final location = _locationController.text.trim();
-    final priceRange = _priceRangeController.text.trim();
+    final priceRange =
+        _priceRangeController.text.trim();
+
+    final category = _selectedCategory == 'Other Service'
+        ? _customCategoryController.text.trim()
+        : _selectedCategory;
 
     if (user == null) {
       _showMessage('Please log in again');
@@ -94,10 +138,19 @@ class _ProviderProfileFormScreenState
     }
 
     if (businessName.isEmpty ||
+        category.isEmpty ||
         description.isEmpty ||
         location.isEmpty ||
         priceRange.isEmpty) {
       _showMessage('Please complete all fields');
+      return;
+    }
+
+    if (_selectedCategory == 'Other Service' &&
+        category.length < 3) {
+      _showMessage(
+        'Enter a clear name for your service category',
+      );
       return;
     }
 
@@ -113,17 +166,16 @@ class _ProviderProfileFormScreenState
         'providerId': user.uid,
         'providerEmail': user.email,
         'businessName': businessName,
-        'category': _selectedCategory,
+        'category': category,
         'description': description,
         'location': location,
         'priceRange': priceRange,
-        'averageRating': 0.0,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
       if (!mounted) return;
 
-      _showMessage('Provider profile saved');
+      _showMessage('Provider profile saved successfully');
     } catch (error) {
       if (!mounted) return;
 
@@ -139,6 +191,8 @@ class _ProviderProfileFormScreenState
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Service Profile'),
@@ -149,95 +203,170 @@ class _ProviderProfileFormScreenState
             )
           : SingleChildScrollView(
               padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  TextField(
-                    controller: _businessNameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Business or provider name',
-                      prefixIcon: Icon(Icons.storefront),
-                      border: OutlineInputBorder(),
-                    ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: 650,
                   ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    initialValue: _selectedCategory,
-                    decoration: const InputDecoration(
-                      labelText: 'Service category',
-                      prefixIcon: Icon(Icons.category),
-                      border: OutlineInputBorder(),
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'Tutors',
-                        child: Text('Tutors'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'Electricians',
-                        child: Text('Electricians'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'Plumbers',
-                        child: Text('Plumbers'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'Cleaning Services',
-                        child: Text('Cleaning Services'),
-                      ),
-                    ],
-                    onChanged: (value) {
-                      if (value == null) return;
-
-                      setState(() {
-                        _selectedCategory = value;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _descriptionController,
-                    maxLines: 4,
-                    decoration: const InputDecoration(
-                      labelText: 'Service description',
-                      alignLabelWithHint: true,
-                      prefixIcon: Icon(Icons.description),
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _locationController,
-                    decoration: const InputDecoration(
-                      labelText: 'Location or service area',
-                      prefixIcon: Icon(Icons.location_on),
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _priceRangeController,
-                    decoration: const InputDecoration(
-                      labelText: 'Price range',
-                      hintText: 'Example: R150 - R300 per hour',
-                      prefixIcon: Icon(Icons.payments),
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: _isSaving ? null : _saveProfile,
-                    child: _isSaving
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.stretch,
+                        children: [
+                          Icon(
+                            Icons.storefront,
+                            size: 56,
+                            color: colorScheme.primary,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Your service profile',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context)
+                                .textTheme
+                                .headlineSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Customers use these details to '
+                            'discover and contact your service.',
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 28),
+                          TextField(
+                            controller:
+                                _businessNameController,
+                            textCapitalization:
+                                TextCapitalization.words,
+                            decoration: const InputDecoration(
+                              labelText:
+                                  'Business or provider name',
+                              prefixIcon:
+                                  Icon(Icons.storefront),
                             ),
-                          )
-                        : const Text('Save Profile'),
+                          ),
+                          const SizedBox(height: 16),
+                          DropdownButtonFormField<String>(
+                            initialValue: _selectedCategory,
+                            isExpanded: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Service category',
+                              prefixIcon:
+                                  Icon(Icons.category_outlined),
+                            ),
+                            items: _categories
+                                .map(
+                                  (category) =>
+                                      DropdownMenuItem<String>(
+                                    value: category,
+                                    child: Text(category),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: _isSaving
+                                ? null
+                                : (value) {
+                                    if (value == null) return;
+
+                                    setState(() {
+                                      _selectedCategory = value;
+                                    });
+                                  },
+                          ),
+                          if (_selectedCategory ==
+                              'Other Service') ...[
+                            const SizedBox(height: 16),
+                            TextField(
+                              controller:
+                                  _customCategoryController,
+                              textCapitalization:
+                                  TextCapitalization.words,
+                              decoration:
+                                  const InputDecoration(
+                                labelText:
+                                    'Your service category',
+                                hintText:
+                                    'Example: Tailoring',
+                                prefixIcon:
+                                    Icon(Icons.edit_outlined),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller:
+                                _descriptionController,
+                            maxLines: 4,
+                            textCapitalization:
+                                TextCapitalization.sentences,
+                            decoration: const InputDecoration(
+                              labelText:
+                                  'Service description',
+                              hintText:
+                                  'Explain the services you offer',
+                              alignLabelWithHint: true,
+                              prefixIcon:
+                                  Icon(Icons.description_outlined),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller:
+                                _locationController,
+                            textCapitalization:
+                                TextCapitalization.words,
+                            decoration: const InputDecoration(
+                              labelText:
+                                  'Full service address or area',
+                              hintText:
+                                  'Use a location Google Maps can find',
+                              prefixIcon:
+                                  Icon(Icons.location_on_outlined),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller:
+                                _priceRangeController,
+                            decoration: const InputDecoration(
+                              labelText: 'Price range',
+                              hintText:
+                                  'Example: R150 - R300 per hour',
+                              prefixIcon:
+                                  Icon(Icons.payments_outlined),
+                            ),
+                          ),
+                          const SizedBox(height: 26),
+                          ElevatedButton.icon(
+                            onPressed:
+                                _isSaving ? null : _saveProfile,
+                            icon: _isSaving
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child:
+                                        CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.save_outlined),
+                            label: Text(
+                              _isSaving
+                                  ? 'Saving profile...'
+                                  : 'Save Profile',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ],
+                ),
               ),
             ),
     );

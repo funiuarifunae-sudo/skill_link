@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import 'provider_list_screen.dart';
@@ -5,55 +6,168 @@ import 'provider_list_screen.dart';
 class CategoriesScreen extends StatelessWidget {
   const CategoriesScreen({super.key});
 
+  static const List<String> defaultCategories = [
+    'Tutors',
+    'Electricians',
+    'Plumbers',
+    'Cleaning Services',
+    'Mechanics',
+    'Photographers',
+    'Gardening',
+    'Beauty and Wellness',
+    'Catering',
+    'IT and Tech Support',
+  ];
+
+  static const Map<String, IconData> categoryIcons = {
+    'Tutors': Icons.school,
+    'Electricians': Icons.electrical_services,
+    'Plumbers': Icons.plumbing,
+    'Cleaning Services': Icons.cleaning_services,
+    'Mechanics': Icons.car_repair,
+    'Photographers': Icons.camera_alt,
+    'Gardening': Icons.yard,
+    'Beauty and Wellness': Icons.spa,
+    'Catering': Icons.restaurant,
+    'IT and Tech Support': Icons.computer,
+  };
+
   @override
   Widget build(BuildContext context) {
-    final categories = [
-      {
-        'name': 'Tutors',
-        'icon': Icons.school,
-      },
-      {
-        'name': 'Electricians',
-        'icon': Icons.electrical_services,
-      },
-      {
-        'name': 'Plumbers',
-        'icon': Icons.plumbing,
-      },
-      {
-        'name': 'Cleaning Services',
-        'icon': Icons.cleaning_services,
-      },
-    ];
+    final profilesStream = FirebaseFirestore.instance
+        .collection('providerProfiles')
+        .snapshots();
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Service Categories'),
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: categories.length,
-        itemBuilder: (context, index) {
-          final category = categories[index];
-          final categoryName = category['name'] as String;
-          final categoryIcon = category['icon'] as IconData;
+      body: StreamBuilder<
+          QuerySnapshot<Map<String, dynamic>>>(
+        stream: profilesStream,
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Text(
+                'Unable to load categories: ${snapshot.error}',
+              ),
+            );
+          }
 
-          return Card(
-            child: ListTile(
-              leading: Icon(categoryIcon),
-              title: Text(categoryName),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ProviderListScreen(
-                      category: categoryName,
+          if (snapshot.connectionState ==
+              ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          }
+
+          final profiles = snapshot.data?.docs ?? [];
+          final providerCounts = <String, int>{};
+
+          for (final profile in profiles) {
+            final category =
+                profile.data()['category'] as String? ?? '';
+
+            if (category.trim().isEmpty) continue;
+
+            providerCounts[category] =
+                (providerCounts[category] ?? 0) + 1;
+          }
+
+          final allCategories = <String>{
+            ...defaultCategories,
+            ...providerCounts.keys,
+          }.toList();
+
+          final customCategories = allCategories
+              .where(
+                (category) =>
+                    !defaultCategories.contains(category),
+              )
+              .toList()
+            ..sort();
+
+          final displayedCategories = [
+            ...defaultCategories,
+            ...customCategories,
+          ];
+
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.explore,
+                        size: 36,
+                        color:
+                            Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 14),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Explore local services',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Choose a category to find '
+                              'providers near you.',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              ...displayedCategories.map((category) {
+                final providerCount =
+                    providerCounts[category] ?? 0;
+
+                return Card(
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      child: Icon(
+                        categoryIcons[category] ??
+                            Icons.work_outline,
+                      ),
                     ),
+                    title: Text(category),
+                    subtitle: Text(
+                      providerCount == 0
+                          ? 'No providers yet'
+                          : '$providerCount '
+                              '${providerCount == 1 ? 'provider' : 'providers'}',
+                    ),
+                    trailing:
+                        const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              ProviderListScreen(
+                            category: category,
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 );
-              },
-            ),
+              }),
+            ],
           );
         },
       ),
