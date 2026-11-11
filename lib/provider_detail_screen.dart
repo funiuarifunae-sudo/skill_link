@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-class ProviderDetailScreen extends StatelessWidget {
+class ProviderDetailScreen extends StatefulWidget {
   final String providerId;
   final String name;
   final String specialty;
@@ -22,6 +22,26 @@ class ProviderDetailScreen extends StatelessWidget {
     required this.location,
     required this.priceRange,
   });
+
+  @override
+  State<ProviderDetailScreen> createState() =>
+      _ProviderDetailScreenState();
+}
+
+class _ProviderDetailScreenState
+    extends State<ProviderDetailScreen> {
+  late String _selectedSpecialty;
+  late String _selectedDescription;
+  late String _selectedPriceRange;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _selectedSpecialty = widget.specialty;
+    _selectedDescription = widget.description;
+    _selectedPriceRange = widget.priceRange;
+  }
 
   String availabilityLabel(String status) {
     switch (status) {
@@ -45,9 +65,64 @@ class ProviderDetailScreen extends StatelessWidget {
     }
   }
 
-  Future<void> openMap(BuildContext context) async {
+  List<Map<String, String>> servicesForProvider(
+    Map<String, dynamic> provider,
+  ) {
+    final services = <Map<String, String>>[];
+    final savedServices = provider['services'];
+
+    if (savedServices is List) {
+      for (final service in savedServices) {
+        if (service is! Map) continue;
+
+        final serviceData =
+            Map<String, dynamic>.from(service);
+
+        final category =
+            serviceData['category'] as String? ?? '';
+
+        if (category.trim().isEmpty) {
+          continue;
+        }
+
+        services.add({
+          'category': category.trim(),
+          'description':
+              serviceData['description']
+                      as String? ??
+                  'No description',
+          'priceRange':
+              serviceData['priceRange']
+                      as String? ??
+                  'Price unavailable',
+        });
+      }
+    }
+
+    if (services.isEmpty) {
+      final category =
+          provider['category'] as String? ??
+              widget.specialty;
+
+      services.add({
+        'category': category,
+        'description':
+            provider['description'] as String? ??
+                widget.description,
+        'priceRange':
+            provider['priceRange'] as String? ??
+                widget.priceRange,
+      });
+    }
+
+    return services;
+  }
+
+  Future<void> openMap(
+    BuildContext context,
+  ) async {
     final encodedLocation =
-        Uri.encodeComponent(location);
+        Uri.encodeComponent(widget.location);
 
     final mapUrl = Uri.parse(
       'https://www.google.com/maps/search/'
@@ -83,7 +158,8 @@ class ProviderDetailScreen extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'This provider has not added a WhatsApp number',
+            'This provider has not added '
+            'a WhatsApp number',
           ),
         ),
       );
@@ -91,9 +167,9 @@ class ProviderDetailScreen extends StatelessWidget {
     }
 
     final message =
-        'Hi $name, I found your $specialty service '
-        'on SkillLink. I would like to discuss a '
-        'service request.';
+        'Hi ${widget.name}, I found your '
+        '$_selectedSpecialty service on SkillLink. '
+        'I would like to discuss a service request.';
 
     final whatsappUrl = Uri.parse(
       'https://wa.me/$cleanNumber'
@@ -125,7 +201,8 @@ class ProviderDetailScreen extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Please log in before requesting a service',
+            'Please log in before requesting '
+            'a service',
           ),
         ),
       );
@@ -136,7 +213,7 @@ class ProviderDetailScreen extends StatelessWidget {
       final providerProfile =
           await FirebaseFirestore.instance
               .collection('providerProfiles')
-              .doc(providerId)
+              .doc(widget.providerId)
               .get();
 
       final providerData =
@@ -152,21 +229,25 @@ class ProviderDetailScreen extends StatelessWidget {
           .add({
         'customerId': user.uid,
         'customerEmail': user.email,
-        'providerId': providerId,
-        'providerName': name,
+        'providerId': widget.providerId,
+        'providerName': widget.name,
         'providerWhatsappNumber':
             providerWhatsappNumber,
-        'specialty': specialty,
+        'specialty': _selectedSpecialty,
+        'serviceDescription':
+            _selectedDescription,
+        'priceRange': _selectedPriceRange,
         'status': 'Pending',
-        'createdAt': FieldValue.serverTimestamp(),
+        'createdAt':
+            FieldValue.serverTimestamp(),
       });
 
       if (!context.mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Service request submitted',
+            '$_selectedSpecialty request submitted',
           ),
         ),
       );
@@ -188,7 +269,7 @@ class ProviderDetailScreen extends StatelessWidget {
     final providerStream =
         FirebaseFirestore.instance
             .collection('providerProfiles')
-            .doc(providerId)
+            .doc(widget.providerId)
             .snapshots();
 
     return Scaffold(
@@ -213,10 +294,11 @@ class ProviderDetailScreen extends StatelessWidget {
                     size: 48,
                   ),
                 ),
+
                 const SizedBox(height: 16),
 
                 Text(
-                  name,
+                  widget.name,
                   textAlign: TextAlign.center,
                   style: Theme.of(context)
                       .textTheme
@@ -225,13 +307,6 @@ class ProviderDetailScreen extends StatelessWidget {
                         fontWeight:
                             FontWeight.bold,
                       ),
-                ),
-
-                const SizedBox(height: 8),
-
-                Text(
-                  specialty,
-                  textAlign: TextAlign.center,
                 ),
 
                 const SizedBox(height: 12),
@@ -287,7 +362,8 @@ class ProviderDetailScreen extends StatelessWidget {
                       .collection('reviews')
                       .where(
                         'providerId',
-                        isEqualTo: providerId,
+                        isEqualTo:
+                            widget.providerId,
                       )
                       .snapshots(),
                   builder: (context, snapshot) {
@@ -313,7 +389,8 @@ class ProviderDetailScreen extends StatelessWidget {
 
                     double total = 0;
 
-                    for (final review in reviews) {
+                    for (final review
+                        in reviews) {
                       total +=
                           (review.data()['rating']
                                       as num?)
@@ -328,18 +405,177 @@ class ProviderDetailScreen extends StatelessWidget {
                       'Rating: '
                       '${average.toStringAsFixed(1)} '
                       '(${reviews.length} review(s))',
-                      textAlign: TextAlign.center,
+                      textAlign:
+                          TextAlign.center,
                     );
                   },
                 ),
 
                 const SizedBox(height: 24),
 
+                Text(
+                  'Services offered',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleLarge
+                      ?.copyWith(
+                        fontWeight:
+                            FontWeight.bold,
+                      ),
+                ),
+
+                const SizedBox(height: 8),
+
+                const Text(
+                  'Select the service you want '
+                  'to request.',
+                ),
+
+                const SizedBox(height: 12),
+
+                StreamBuilder<
+                    DocumentSnapshot<
+                        Map<String, dynamic>>>(
+                  stream: providerStream,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState ==
+                        ConnectionState.waiting) {
+                      return const Center(
+                        child:
+                            CircularProgressIndicator(),
+                      );
+                    }
+
+                    final provider =
+                        snapshot.data?.data() ??
+                            <String, dynamic>{};
+
+                    final services =
+                        servicesForProvider(
+                      provider,
+                    );
+
+                    return Column(
+                      children: services.map(
+                        (service) {
+                          final category =
+                              service['category'] ??
+                                  'Service';
+
+                          final description =
+                              service[
+                                      'description'] ??
+                                  'No description';
+
+                          final price =
+                              service[
+                                      'priceRange'] ??
+                                  'Price unavailable';
+
+                          final isSelected =
+                              category ==
+                                      _selectedSpecialty &&
+                                  description ==
+                                      _selectedDescription &&
+                                  price ==
+                                      _selectedPriceRange;
+
+                          return Card(
+                            color: isSelected
+                                ? Theme.of(context)
+                                    .colorScheme
+                                    .primaryContainer
+                                : null,
+                            child: ListTile(
+                              leading: Icon(
+                                isSelected
+                                    ? Icons
+                                        .check_circle
+                                    : Icons
+                                        .design_services,
+                                color: isSelected
+                                    ? Theme.of(context)
+                                        .colorScheme
+                                        .primary
+                                    : null,
+                              ),
+                              title: Text(
+                                category,
+                                style:
+                                    const TextStyle(
+                                  fontWeight:
+                                      FontWeight.bold,
+                                ),
+                              ),
+                              subtitle: Text(
+                                '$description\n$price',
+                              ),
+                              isThreeLine: true,
+                              trailing: isSelected
+                                  ? const Text(
+                                      'Selected',
+                                    )
+                                  : const Icon(
+                                      Icons
+                                          .chevron_right,
+                                    ),
+                              onTap: () {
+                                setState(() {
+                                  _selectedSpecialty =
+                                      category;
+
+                                  _selectedDescription =
+                                      description;
+
+                                  _selectedPriceRange =
+                                      price;
+                                });
+                              },
+                            ),
+                          );
+                        },
+                      ).toList(),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 20),
+
                 Card(
                   child: Padding(
                     padding:
                         const EdgeInsets.all(16),
-                    child: Text(description),
+                    child: Column(
+                      crossAxisAlignment:
+                          CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _selectedSpecialty,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(
+                                fontWeight:
+                                    FontWeight.bold,
+                              ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _selectedDescription,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _selectedPriceRange,
+                          style: TextStyle(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .primary,
+                            fontWeight:
+                                FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
 
@@ -350,7 +586,9 @@ class ProviderDetailScreen extends StatelessWidget {
                     leading: const Icon(
                       Icons.location_on,
                     ),
-                    title: Text(location),
+                    title: Text(
+                      widget.location,
+                    ),
                     subtitle:
                         const Text('Service area'),
                   ),
@@ -366,19 +604,6 @@ class ProviderDetailScreen extends StatelessWidget {
                   ),
                 ),
 
-                const SizedBox(height: 12),
-
-                Card(
-                  child: ListTile(
-                    leading: const Icon(
-                      Icons.payments,
-                    ),
-                    title: Text(priceRange),
-                    subtitle:
-                        const Text('Price range'),
-                  ),
-                ),
-
                 const SizedBox(height: 24),
 
                 ElevatedButton.icon(
@@ -388,8 +613,8 @@ class ProviderDetailScreen extends StatelessWidget {
                   icon: const Icon(
                     Icons.send_outlined,
                   ),
-                  label: const Text(
-                    'Request Service',
+                  label: Text(
+                    'Request $_selectedSpecialty',
                   ),
                 ),
 
@@ -421,8 +646,10 @@ class ProviderDetailScreen extends StatelessWidget {
                     if (whatsappNumber.isEmpty) {
                       return OutlinedButton.icon(
                         onPressed: null,
-                        icon: Icon(Icons.chat),
-                        label: Text(
+                        icon: const Icon(
+                          Icons.chat,
+                        ),
+                        label: const Text(
                           'WhatsApp number unavailable',
                         ),
                       );
@@ -438,7 +665,9 @@ class ProviderDetailScreen extends StatelessWidget {
                       style:
                           ElevatedButton.styleFrom(
                         backgroundColor:
-                            const Color(0xFF25D366),
+                            const Color(
+                          0xFF25D366,
+                        ),
                         foregroundColor:
                             Colors.white,
                       ),
@@ -455,9 +684,9 @@ class ProviderDetailScreen extends StatelessWidget {
                 const SizedBox(height: 8),
 
                 const Text(
-                  'Your service request is recorded '
-                  'inside SkillLink. WhatsApp is used '
-                  'only for discussing the request.',
+                  'Your request is recorded inside '
+                  'SkillLink. WhatsApp is used only '
+                  'for discussing the request.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,
