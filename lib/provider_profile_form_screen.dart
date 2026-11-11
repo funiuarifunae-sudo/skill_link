@@ -1,6 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:flutter/foundation.dart';
+import 'package:geocoding/geocoding.dart';
 
 class ProviderProfileFormScreen extends StatefulWidget {
   const ProviderProfileFormScreen({super.key});
@@ -33,8 +36,13 @@ class _ProviderProfileFormScreenState
   final _priceRangeController = TextEditingController();
 
   String _selectedCategory = 'Tutors';
+
+  double? _latitude;
+  double? _longitude;
+
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _isFindingLocation = false;
 
   @override
   void initState() {
@@ -75,12 +83,21 @@ class _ProviderProfileFormScreenState
 
         _businessNameController.text =
             data?['businessName'] as String? ?? '';
+
         _descriptionController.text =
             data?['description'] as String? ?? '';
+
         _locationController.text =
             data?['location'] as String? ?? '';
+
         _priceRangeController.text =
             data?['priceRange'] as String? ?? '';
+
+        _latitude =
+            (data?['latitude'] as num?)?.toDouble();
+
+        _longitude =
+            (data?['longitude'] as num?)?.toDouble();
 
         final savedCategory =
             data?['category'] as String? ?? 'Tutors';
@@ -117,20 +134,141 @@ class _ProviderProfileFormScreenState
     );
   }
 
+  Future<void> _useCurrentLocation() async {
+    setState(() {
+      _isFindingLocation = true;
+    });
+
+    try {
+      final serviceEnabled =
+          await Geolocator.isLocationServiceEnabled();
+
+      if (!serviceEnabled) {
+        _showMessage(
+          'Turn on Location Services and try again',
+        );
+        return;
+      }
+
+      var permission =
+          await Geolocator.checkPermission();
+
+      if (permission == LocationPermission.denied) {
+        permission =
+            await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied) {
+        _showMessage('Location permission was denied');
+        return;
+      }
+
+      if (permission ==
+          LocationPermission.deniedForever) {
+        _showMessage(
+          'Location permission is blocked. '
+          'Enable it in your device settings.',
+        );
+        return;
+      }
+
+      final position =
+          await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 20),
+        ),
+      );
+String detectedLocation;
+
+if (kIsWeb) {
+  // Reverse geocoding is unavailable through this package on Chrome.
+  // Coordinates still work with Google Maps.
+  detectedLocation =
+      '${position.latitude.toStringAsFixed(6)}, '
+      '${position.longitude.toStringAsFixed(6)}';
+} else {
+  try {
+    final geocoding = Geocoding();
+
+final placemarks = await geocoding.placemarkFromCoordinates(
+  position.latitude,
+  position.longitude,
+);
+    if (placemarks.isNotEmpty) {
+      final place = placemarks.first;
+
+      final addressParts = <String>[
+        if ((place.street ?? '').isNotEmpty)
+          place.street!,
+        if ((place.subLocality ?? '').isNotEmpty)
+          place.subLocality!,
+        if ((place.locality ?? '').isNotEmpty)
+          place.locality!,
+        if ((place.administrativeArea ?? '').isNotEmpty)
+          place.administrativeArea!,
+        if ((place.postalCode ?? '').isNotEmpty)
+          place.postalCode!,
+      ];
+
+      detectedLocation = addressParts.toSet().join(', ');
+    } else {
+      detectedLocation =
+          '${position.latitude.toStringAsFixed(6)}, '
+          '${position.longitude.toStringAsFixed(6)}';
+    }
+  } catch (_) {
+    detectedLocation =
+        '${position.latitude.toStringAsFixed(6)}, '
+        '${position.longitude.toStringAsFixed(6)}';
+  }
+}
+
+if (!mounted) return;
+
+setState(() {
+  _latitude = position.latitude;
+  _longitude = position.longitude;
+  _locationController.text = detectedLocation;
+});
+
+_showMessage(
+  'Location detected. Check the address, then save your profile.',
+);
+    } catch (error) {
+      if (mounted) {
+        _showMessage(
+          'Unable to get GPS location: $error',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isFindingLocation = false;
+        });
+      }
+    }
+  }
+
   Future<void> _saveProfile() async {
     final user = FirebaseAuth.instance.currentUser;
 
     final businessName =
         _businessNameController.text.trim();
+
     final description =
         _descriptionController.text.trim();
-    final location = _locationController.text.trim();
+
+    final location =
+        _locationController.text.trim();
+
     final priceRange =
         _priceRangeController.text.trim();
 
-    final category = _selectedCategory == 'Other Service'
-        ? _customCategoryController.text.trim()
-        : _selectedCategory;
+    final category =
+        _selectedCategory == 'Other Service'
+            ? _customCategoryController.text.trim()
+            : _selectedCategory;
 
     if (user == null) {
       _showMessage('Please log in again');
@@ -170,16 +308,29 @@ class _ProviderProfileFormScreenState
         'description': description,
         'location': location,
         'priceRange': priceRange,
+
+        if (_latitude != null &&
+            _longitude != null) ...{
+          'latitude': _latitude,
+          'longitude': _longitude,
+          'locationUpdatedAt':
+              FieldValue.serverTimestamp(),
+        },
+
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
       if (!mounted) return;
 
-      _showMessage('Provider profile saved successfully');
+      _showMessage(
+        'Provider profile saved successfully',
+      );
     } catch (error) {
-      if (!mounted) return;
-
-      _showMessage('Unable to save profile: $error');
+      if (mounted) {
+        _showMessage(
+          'Unable to save profile: $error',
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -191,7 +342,8 @@ class _ProviderProfileFormScreenState
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final colorScheme =
+        Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -228,41 +380,51 @@ class _ProviderProfileFormScreenState
                                 .textTheme
                                 .headlineSmall
                                 ?.copyWith(
-                                  fontWeight: FontWeight.bold,
+                                  fontWeight:
+                                      FontWeight.bold,
                                 ),
                           ),
                           const SizedBox(height: 8),
                           const Text(
-                            'Customers use these details to '
-                            'discover and contact your service.',
+                            'Customers use these details '
+                            'to discover and contact your service.',
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 28),
+
                           TextField(
                             controller:
                                 _businessNameController,
                             textCapitalization:
                                 TextCapitalization.words,
-                            decoration: const InputDecoration(
+                            decoration:
+                                const InputDecoration(
                               labelText:
                                   'Business or provider name',
                               prefixIcon:
                                   Icon(Icons.storefront),
                             ),
                           ),
+
                           const SizedBox(height: 16),
+
                           DropdownButtonFormField<String>(
-                            initialValue: _selectedCategory,
+                            initialValue:
+                                _selectedCategory,
                             isExpanded: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Service category',
-                              prefixIcon:
-                                  Icon(Icons.category_outlined),
+                            decoration:
+                                const InputDecoration(
+                              labelText:
+                                  'Service category',
+                              prefixIcon: Icon(
+                                Icons.category_outlined,
+                              ),
                             ),
                             items: _categories
                                 .map(
                                   (category) =>
-                                      DropdownMenuItem<String>(
+                                      DropdownMenuItem<
+                                          String>(
                                     value: category,
                                     child: Text(category),
                                   ),
@@ -271,13 +433,17 @@ class _ProviderProfileFormScreenState
                             onChanged: _isSaving
                                 ? null
                                 : (value) {
-                                    if (value == null) return;
+                                    if (value == null) {
+                                      return;
+                                    }
 
                                     setState(() {
-                                      _selectedCategory = value;
+                                      _selectedCategory =
+                                          value;
                                     });
                                   },
                           ),
+
                           if (_selectedCategory ==
                               'Other Service') ...[
                             const SizedBox(height: 16),
@@ -292,59 +458,127 @@ class _ProviderProfileFormScreenState
                                     'Your service category',
                                 hintText:
                                     'Example: Tailoring',
-                                prefixIcon:
-                                    Icon(Icons.edit_outlined),
+                                prefixIcon: Icon(
+                                  Icons.edit_outlined,
+                                ),
                               ),
                             ),
                           ],
+
                           const SizedBox(height: 16),
+
                           TextField(
                             controller:
                                 _descriptionController,
                             maxLines: 4,
                             textCapitalization:
-                                TextCapitalization.sentences,
-                            decoration: const InputDecoration(
+                                TextCapitalization
+                                    .sentences,
+                            decoration:
+                                const InputDecoration(
                               labelText:
                                   'Service description',
                               hintText:
                                   'Explain the services you offer',
                               alignLabelWithHint: true,
-                              prefixIcon:
-                                  Icon(Icons.description_outlined),
+                              prefixIcon: Icon(
+                                Icons.description_outlined,
+                              ),
                             ),
                           ),
+
                           const SizedBox(height: 16),
+
                           TextField(
                             controller:
                                 _locationController,
                             textCapitalization:
                                 TextCapitalization.words,
-                            decoration: const InputDecoration(
+                            decoration:
+                                const InputDecoration(
                               labelText:
                                   'Full service address or area',
                               hintText:
                                   'Use a location Google Maps can find',
-                              prefixIcon:
-                                  Icon(Icons.location_on_outlined),
+                              prefixIcon: Icon(
+                                Icons.location_on_outlined,
+                              ),
                             ),
                           ),
+
+                          const SizedBox(height: 10),
+
+                          OutlinedButton.icon(
+                            onPressed:
+                                _isFindingLocation ||
+                                        _isSaving
+                                    ? null
+                                    : _useCurrentLocation,
+                            icon: _isFindingLocation
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child:
+                                        CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.my_location,
+                                  ),
+                            label: Text(
+                              _isFindingLocation
+                                  ? 'Finding location...'
+                                  : _latitude == null
+                                      ? 'Use My Current GPS Location'
+                                      : 'Update My GPS Location',
+                            ),
+                          ),
+
+                          if (_latitude != null &&
+                              _longitude != null) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.check_circle,
+                                  size: 18,
+                                  color:
+                                      colorScheme.primary,
+                                ),
+                                const SizedBox(width: 8),
+                                const Expanded(
+                                  child: Text(
+                                    'GPS location captured '
+                                    'and ready to save',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+
                           const SizedBox(height: 16),
+
                           TextField(
                             controller:
                                 _priceRangeController,
-                            decoration: const InputDecoration(
+                            decoration:
+                                const InputDecoration(
                               labelText: 'Price range',
                               hintText:
                                   'Example: R150 - R300 per hour',
-                              prefixIcon:
-                                  Icon(Icons.payments_outlined),
+                              prefixIcon: Icon(
+                                Icons.payments_outlined,
+                              ),
                             ),
                           ),
+
                           const SizedBox(height: 26),
+
                           ElevatedButton.icon(
-                            onPressed:
-                                _isSaving ? null : _saveProfile,
+                            onPressed: _isSaving
+                                ? null
+                                : _saveProfile,
                             icon: _isSaving
                                 ? const SizedBox(
                                     width: 18,
@@ -355,7 +589,9 @@ class _ProviderProfileFormScreenState
                                       color: Colors.white,
                                     ),
                                   )
-                                : const Icon(Icons.save_outlined),
+                                : const Icon(
+                                    Icons.save_outlined,
+                                  ),
                             label: Text(
                               _isSaving
                                   ? 'Saving profile...'
