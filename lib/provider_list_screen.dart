@@ -52,6 +52,59 @@ class _ProviderListScreenState
     );
   }
 
+  Map<String, String>? serviceForCategory(
+    Map<String, dynamic> provider,
+  ) {
+    final services = provider['services'];
+
+    if (services is List) {
+      for (final service in services) {
+        if (service is! Map) continue;
+
+        final serviceData =
+            Map<String, dynamic>.from(service);
+
+        final category =
+            serviceData['category'] as String? ?? '';
+
+        if (category.trim().toLowerCase() ==
+            widget.category.trim().toLowerCase()) {
+          return {
+            'category': category,
+            'description':
+                serviceData['description']
+                        as String? ??
+                    'No description',
+            'priceRange':
+                serviceData['priceRange']
+                        as String? ??
+                    'Price unavailable',
+          };
+        }
+      }
+    }
+
+    // Support profiles created before multiple
+    // services were introduced.
+    final originalCategory =
+        provider['category'] as String? ?? '';
+
+    if (originalCategory.trim().toLowerCase() ==
+        widget.category.trim().toLowerCase()) {
+      return {
+        'category': originalCategory,
+        'description':
+            provider['description'] as String? ??
+                'No description',
+        'priceRange':
+            provider['priceRange'] as String? ??
+                'Price unavailable',
+      };
+    }
+
+    return null;
+  }
+
   Future<void> _useCustomerLocation() async {
     setState(() {
       _isFindingLocation = true;
@@ -77,7 +130,9 @@ class _ProviderListScreenState
       }
 
       if (permission == LocationPermission.denied) {
-        _showMessage('Location permission was denied');
+        _showMessage(
+          'Location permission was denied',
+        );
         return;
       }
 
@@ -152,7 +207,9 @@ class _ProviderListScreenState
 
   String _formatDistance(double distance) {
     if (distance < 1) {
-      final metres = (distance * 1000).round();
+      final metres =
+          (distance * 1000).round();
+
       return '$metres m away';
     }
 
@@ -161,13 +218,12 @@ class _ProviderListScreenState
 
   @override
   Widget build(BuildContext context) {
-    final providersStream = FirebaseFirestore.instance
-        .collection('providerProfiles')
-        .where(
-          'category',
-          isEqualTo: widget.category,
-        )
-        .snapshots();
+    // Read all profiles because a provider may now
+    // offer several different service categories.
+    final providersStream =
+        FirebaseFirestore.instance
+            .collection('providerProfiles')
+            .snapshots();
 
     return Scaffold(
       appBar: AppBar(
@@ -182,11 +238,14 @@ class _ProviderListScreenState
                 ? const SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(
+                    child:
+                        CircularProgressIndicator(
                       strokeWidth: 2,
                     ),
                   )
-                : const Icon(Icons.my_location),
+                : const Icon(
+                    Icons.my_location,
+                  ),
           ),
         ],
       ),
@@ -205,7 +264,8 @@ class _ProviderListScreenState
               color: Theme.of(context)
                   .colorScheme
                   .primaryContainer,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius:
+                  BorderRadius.circular(16),
             ),
             child: Row(
               children: [
@@ -218,10 +278,10 @@ class _ProviderListScreenState
                 Expanded(
                   child: Text(
                     _customerPosition == null
-                        ? 'Use your location to see the '
-                            'nearest providers.'
-                        : 'Showing provider distances and '
-                            'sorting nearest first.',
+                        ? 'Use your location to see '
+                            'the nearest providers.'
+                        : 'Showing provider distances '
+                            'and sorting nearest first.',
                   ),
                 ),
                 TextButton(
@@ -237,9 +297,11 @@ class _ProviderListScreenState
               ],
             ),
           ),
+
           Expanded(
             child: StreamBuilder<
-                QuerySnapshot<Map<String, dynamic>>>(
+                QuerySnapshot<
+                    Map<String, dynamic>>>(
               stream: providersStream,
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
@@ -254,60 +316,83 @@ class _ProviderListScreenState
                 if (snapshot.connectionState ==
                     ConnectionState.waiting) {
                   return const Center(
-                    child: CircularProgressIndicator(),
+                    child:
+                        CircularProgressIndicator(),
                   );
                 }
 
-                final providers = [
-                  ...?snapshot.data?.docs,
-                ];
+                final allProviders =
+                    snapshot.data?.docs ?? [];
+
+                final providers =
+                    allProviders.where(
+                  (document) {
+                    return serviceForCategory(
+                          document.data(),
+                        ) !=
+                        null;
+                  },
+                ).toList();
 
                 if (_customerPosition != null) {
-                  providers.sort((first, second) {
-                    final firstDistance =
-                        _distanceInKilometres(
-                      first.data(),
-                    );
+                  providers.sort(
+                    (first, second) {
+                      final firstDistance =
+                          _distanceInKilometres(
+                        first.data(),
+                      );
 
-                    final secondDistance =
-                        _distanceInKilometres(
-                      second.data(),
-                    );
+                      final secondDistance =
+                          _distanceInKilometres(
+                        second.data(),
+                      );
 
-                    if (firstDistance == null &&
-                        secondDistance == null) {
-                      return 0;
-                    }
+                      if (firstDistance == null &&
+                          secondDistance == null) {
+                        return 0;
+                      }
 
-                    if (firstDistance == null) {
-                      return 1;
-                    }
+                      if (firstDistance == null) {
+                        return 1;
+                      }
 
-                    if (secondDistance == null) {
-                      return -1;
-                    }
+                      if (secondDistance == null) {
+                        return -1;
+                      }
 
-                    return firstDistance.compareTo(
-                      secondDistance,
-                    );
-                  });
+                      return firstDistance
+                          .compareTo(
+                        secondDistance,
+                      );
+                    },
+                  );
                 }
 
                 if (providers.isEmpty) {
                   return Center(
                     child: Text(
-                      'No ${widget.category} providers '
-                      'are available yet',
+                      'No ${widget.category} '
+                      'providers are available yet',
                     ),
                   );
                 }
 
                 return ListView.builder(
-                  padding: const EdgeInsets.all(16),
+                  padding:
+                      const EdgeInsets.all(16),
                   itemCount: providers.length,
-                  itemBuilder: (context, index) {
-                    final document = providers[index];
-                    final provider = document.data();
+                  itemBuilder:
+                      (context, index) {
+                    final document =
+                        providers[index];
+
+                    final provider =
+                        document.data();
+
+                    final selectedService =
+                        serviceForCategory(
+                      provider,
+                    )!;
 
                     final name =
                         provider['businessName']
@@ -319,41 +404,51 @@ class _ProviderListScreenState
                                 as String? ??
                             'Location unavailable';
 
-                    final priceRange =
-                        provider['priceRange']
-                                as String? ??
-                            'Price unavailable';
-
                     final description =
-                        provider['description']
-                                as String? ??
+                        selectedService[
+                                'description'] ??
                             'No description';
 
+                    final priceRange =
+                        selectedService[
+                                'priceRange'] ??
+                            'Price unavailable';
+
                     final rating =
-                        (provider['averageRating']
-                                    as num?)
-                                ?.toDouble() ??
+                        (provider[
+                                    'averageRating']
+                                as num?)
+                            ?.toDouble() ??
                             0.0;
 
                     final availabilityStatus =
-                        provider['availabilityStatus']
+                        provider[
+                                    'availabilityStatus']
                                 as String? ??
                             'offline';
 
                     final distance =
-                        _distanceInKilometres(provider);
+                        _distanceInKilometres(
+                      provider,
+                    );
 
                     return Card(
                       child: ListTile(
-                        leading: const CircleAvatar(
-                          child: Icon(Icons.person),
+                        leading:
+                            const CircleAvatar(
+                          child:
+                              Icon(Icons.person),
                         ),
                         title: Text(name),
                         subtitle: Column(
                           crossAxisAlignment:
-                              CrossAxisAlignment.start,
+                              CrossAxisAlignment
+                                  .start,
                           children: [
-                            const SizedBox(height: 4),
+                            const SizedBox(
+                              height: 4,
+                            ),
+
                             Row(
                               children: [
                                 Icon(
@@ -364,7 +459,11 @@ class _ProviderListScreenState
                                     availabilityStatus,
                                   ),
                                 ),
-                                const SizedBox(width: 6),
+
+                                const SizedBox(
+                                  width: 6,
+                                ),
+
                                 Text(
                                   availabilityLabel(
                                     availabilityStatus,
@@ -380,23 +479,40 @@ class _ProviderListScreenState
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 4),
+
+                            const SizedBox(
+                              height: 4,
+                            ),
+
                             Text(location),
-                            Text(priceRange),
+
+                            Text(
+                              priceRange,
+                              style: const TextStyle(
+                                fontWeight:
+                                    FontWeight.w600,
+                              ),
+                            ),
+
                             if (distance != null) ...[
-                              const SizedBox(height: 4),
+                              const SizedBox(
+                                height: 4,
+                              ),
                               Row(
                                 children: [
                                   const Icon(
                                     Icons.near_me,
                                     size: 16,
                                   ),
-                                  const SizedBox(width: 5),
+                                  const SizedBox(
+                                    width: 5,
+                                  ),
                                   Text(
                                     _formatDistance(
                                       distance,
                                     ),
-                                    style: const TextStyle(
+                                    style:
+                                        const TextStyle(
                                       fontWeight:
                                           FontWeight.w600,
                                     ),
@@ -404,13 +520,16 @@ class _ProviderListScreenState
                                 ],
                               ),
                             ] else if (
-                                _customerPosition != null)
+                                _customerPosition !=
+                                    null)
                               const Padding(
                                 padding:
-                                    EdgeInsets.only(top: 4),
+                                    EdgeInsets.only(
+                                  top: 4,
+                                ),
                                 child: Text(
-                                  'Provider GPS location '
-                                  'not available',
+                                  'Provider GPS '
+                                  'location not available',
                                 ),
                               ),
                           ],
@@ -425,15 +544,21 @@ class _ProviderListScreenState
                             MaterialPageRoute(
                               builder: (_) =>
                                   ProviderDetailScreen(
-                                providerId: document.id,
+                                providerId:
+                                    document.id,
                                 name: name,
                                 specialty:
                                     widget.category,
                                 rating: rating
-                                    .toStringAsFixed(1),
-                                description: description,
-                                location: location,
-                                priceRange: priceRange,
+                                    .toStringAsFixed(
+                                      1,
+                                    ),
+                                description:
+                                    description,
+                                location:
+                                    location,
+                                priceRange:
+                                    priceRange,
                               ),
                             ),
                           );

@@ -40,6 +40,65 @@ class _ProviderSearchScreenState
     }
   }
 
+  List<Map<String, String>> servicesForProvider(
+    Map<String, dynamic> provider,
+  ) {
+    final services = <Map<String, String>>[];
+
+    final savedServices = provider['services'];
+
+    if (savedServices is List) {
+      for (final service in savedServices) {
+        if (service is! Map) continue;
+
+        final serviceData =
+            Map<String, dynamic>.from(service);
+
+        final category =
+            serviceData['category'] as String? ?? '';
+
+        if (category.trim().isEmpty) {
+          continue;
+        }
+
+        services.add({
+          'category': category.trim(),
+          'description':
+              serviceData['description']
+                      as String? ??
+                  'No description',
+          'priceRange':
+              serviceData['priceRange']
+                      as String? ??
+                  'Price unavailable',
+        });
+      }
+    }
+
+    // Support profiles created before multiple
+    // service offerings were introduced.
+    if (services.isEmpty) {
+      final category =
+          provider['category'] as String? ?? '';
+
+      if (category.trim().isNotEmpty) {
+        services.add({
+          'category': category.trim(),
+          'description':
+              provider['description']
+                      as String? ??
+                  'No description',
+          'priceRange':
+              provider['priceRange']
+                      as String? ??
+                  'Price unavailable',
+        });
+      }
+    }
+
+    return services;
+  }
+
   @override
   void dispose() {
     searchController.dispose();
@@ -48,9 +107,10 @@ class _ProviderSearchScreenState
 
   @override
   Widget build(BuildContext context) {
-    final providersStream = FirebaseFirestore.instance
-        .collection('providerProfiles')
-        .snapshots();
+    final providersStream =
+        FirebaseFirestore.instance
+            .collection('providerProfiles')
+            .snapshots();
 
     return Scaffold(
       appBar: AppBar(
@@ -59,18 +119,27 @@ class _ProviderSearchScreenState
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+            padding: const EdgeInsets.fromLTRB(
+              16,
+              16,
+              16,
+              4,
+            ),
             child: TextField(
               controller: searchController,
               onChanged: (value) {
                 setState(() {
-                  searchText = value.trim().toLowerCase();
+                  searchText =
+                      value.trim().toLowerCase();
                 });
               },
               decoration: InputDecoration(
-                labelText: 'Search providers or services',
-                hintText: 'Example: tutor, plumber or location',
-                prefixIcon: const Icon(Icons.search),
+                labelText:
+                    'Search providers or services',
+                hintText:
+                    'Example: tutor, mechanic or location',
+                prefixIcon:
+                    const Icon(Icons.search),
                 suffixIcon: searchText.isEmpty
                     ? null
                     : IconButton(
@@ -81,15 +150,23 @@ class _ProviderSearchScreenState
                             searchText = '';
                           });
                         },
-                        icon: const Icon(Icons.clear),
+                        icon: const Icon(
+                          Icons.clear,
+                        ),
                       ),
-                border: const OutlineInputBorder(),
+                border:
+                    const OutlineInputBorder(),
               ),
             ),
           ),
+
           SwitchListTile(
-            title: const Text('Show available providers only'),
-            secondary: const Icon(Icons.online_prediction),
+            title: const Text(
+              'Show available providers only',
+            ),
+            secondary: const Icon(
+              Icons.online_prediction,
+            ),
             value: availableOnly,
             onChanged: (value) {
               setState(() {
@@ -97,15 +174,18 @@ class _ProviderSearchScreenState
               });
             },
           ),
+
           Expanded(
             child: StreamBuilder<
-                QuerySnapshot<Map<String, dynamic>>>(
+                QuerySnapshot<
+                    Map<String, dynamic>>>(
               stream: providersStream,
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return Center(
                     child: Text(
-                      'Unable to search providers: ${snapshot.error}',
+                      'Unable to search providers: '
+                      '${snapshot.error}',
                     ),
                   );
                 }
@@ -113,144 +193,273 @@ class _ProviderSearchScreenState
                 if (snapshot.connectionState ==
                     ConnectionState.waiting) {
                   return const Center(
-                    child: CircularProgressIndicator(),
+                    child:
+                        CircularProgressIndicator(),
                   );
                 }
 
-                final allProviders = snapshot.data?.docs ?? [];
-
                 if (searchText.isEmpty) {
                   return const Center(
-                    child: Text(
-                      'Enter a provider, service, or location to search',
+                    child: Padding(
+                      padding:
+                          EdgeInsets.all(24),
+                      child: Text(
+                        'Enter a provider, service, '
+                        'description, price or location '
+                        'to search',
+                        textAlign:
+                            TextAlign.center,
+                      ),
                     ),
                   );
                 }
 
-                final providers = allProviders.where((document) {
-                  final data = document.data();
+                final documents =
+                    snapshot.data?.docs ?? [];
 
-                  final businessName =
-                      (data['businessName'] as String? ?? '')
-                          .toLowerCase();
-                  final category =
-                      (data['category'] as String? ?? '')
-                          .toLowerCase();
-                  final location =
-                      (data['location'] as String? ?? '')
-                          .toLowerCase();
-                  final description =
-                      (data['description'] as String? ?? '')
-                          .toLowerCase();
+                final results =
+                    <_ServiceSearchResult>[];
+
+                for (final document
+                    in documents) {
+                  final provider =
+                      document.data();
+
                   final status =
-                      data['availabilityStatus'] as String? ??
+                      provider[
+                                  'availabilityStatus']
+                              as String? ??
                           'offline';
 
-                  final matchesSearch =
-                      businessName.contains(searchText) ||
-                          category.contains(searchText) ||
-                          location.contains(searchText) ||
-                          description.contains(searchText);
+                  if (availableOnly &&
+                      status != 'available') {
+                    continue;
+                  }
 
-                  final matchesAvailability =
-                      !availableOnly || status == 'available';
+                  final businessName =
+                      (provider['businessName']
+                                  as String? ??
+                              '')
+                          .toLowerCase();
 
-                  return matchesSearch && matchesAvailability;
-                }).toList();
+                  final location =
+                      (provider['location']
+                                  as String? ??
+                              '')
+                          .toLowerCase();
 
-                if (providers.isEmpty) {
+                  final providerMatches =
+                      businessName.contains(
+                            searchText,
+                          ) ||
+                          location.contains(
+                            searchText,
+                          );
+
+                  final services =
+                      servicesForProvider(
+                    provider,
+                  );
+
+                  for (final service
+                      in services) {
+                    final category =
+                        (service['category'] ?? '')
+                            .toLowerCase();
+
+                    final description =
+                        (service['description'] ??
+                                '')
+                            .toLowerCase();
+
+                    final priceRange =
+                        (service['priceRange'] ??
+                                '')
+                            .toLowerCase();
+
+                    final serviceMatches =
+                        category.contains(
+                              searchText,
+                            ) ||
+                            description.contains(
+                              searchText,
+                            ) ||
+                            priceRange.contains(
+                              searchText,
+                            );
+
+                    if (providerMatches ||
+                        serviceMatches) {
+                      results.add(
+                        _ServiceSearchResult(
+                          document: document,
+                          provider: provider,
+                          service: service,
+                        ),
+                      );
+                    }
+                  }
+                }
+
+                if (results.isEmpty) {
                   return const Center(
-                    child: Text('No matching providers found'),
+                    child: Text(
+                      'No matching services found',
+                    ),
                   );
                 }
 
                 return ListView.builder(
-                  padding: const EdgeInsets.symmetric(
+                  padding:
+                      const EdgeInsets.symmetric(
                     horizontal: 16,
                   ),
-                  itemCount: providers.length,
-                  itemBuilder: (context, index) {
-                    final document = providers[index];
-                    final provider = document.data();
+                  itemCount: results.length,
+                  itemBuilder:
+                      (context, index) {
+                    final result =
+                        results[index];
+
+                    final document =
+                        result.document;
+
+                    final provider =
+                        result.provider;
+
+                    final service =
+                        result.service;
 
                     final name =
-                        provider['businessName'] as String? ??
+                        provider['businessName']
+                                as String? ??
                             'Unnamed provider';
+
                     final category =
-                        provider['category'] as String? ??
+                        service['category'] ??
                             'Service';
-                    final location =
-                        provider['location'] as String? ??
-                            'Location unavailable';
-                    final priceRange =
-                        provider['priceRange'] as String? ??
-                            'Price unavailable';
+
                     final description =
-                        provider['description'] as String? ??
+                        service['description'] ??
                             'No description';
+
+                    final priceRange =
+                        service['priceRange'] ??
+                            'Price unavailable';
+
+                    final location =
+                        provider['location']
+                                as String? ??
+                            'Location unavailable';
+
                     final rating =
-                        (provider['averageRating'] as num?)
-                                ?.toDouble() ??
+                        (provider[
+                                    'averageRating']
+                                as num?)
+                            ?.toDouble() ??
                             0.0;
+
                     final availabilityStatus =
-                        provider['availabilityStatus'] as String? ??
+                        provider[
+                                    'availabilityStatus']
+                                as String? ??
                             'offline';
 
                     return Card(
                       child: ListTile(
-                        leading: const CircleAvatar(
-                          child: Icon(Icons.person),
+                        leading:
+                            const CircleAvatar(
+                          child:
+                              Icon(Icons.person),
                         ),
                         title: Text(name),
                         subtitle: Column(
                           crossAxisAlignment:
-                              CrossAxisAlignment.start,
+                              CrossAxisAlignment
+                                  .start,
                           children: [
-                            const SizedBox(height: 4),
+                            const SizedBox(
+                              height: 4,
+                            ),
+
                             Row(
                               children: [
                                 Icon(
                                   Icons.circle,
                                   size: 12,
-                                  color: availabilityColor(
+                                  color:
+                                      availabilityColor(
                                     availabilityStatus,
                                   ),
                                 ),
-                                const SizedBox(width: 6),
+
+                                const SizedBox(
+                                  width: 6,
+                                ),
+
                                 Text(
                                   availabilityLabel(
                                     availabilityStatus,
                                   ),
                                   style: TextStyle(
-                                    color: availabilityColor(
+                                    color:
+                                        availabilityColor(
                                       availabilityStatus,
                                     ),
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight:
+                                        FontWeight.w600,
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 4),
-                            Text('$category\n$location'),
+
+                            const SizedBox(
+                              height: 4,
+                            ),
+
+                            Text(
+                              category,
+                              style: const TextStyle(
+                                fontWeight:
+                                    FontWeight.bold,
+                              ),
+                            ),
+
+                            Text(location),
+
+                            Text(
+                              priceRange,
+                              style: const TextStyle(
+                                fontWeight:
+                                    FontWeight.w600,
+                              ),
+                            ),
                           ],
                         ),
                         isThreeLine: true,
-                        trailing:
-                            const Icon(Icons.chevron_right),
+                        trailing: const Icon(
+                          Icons.chevron_right,
+                        ),
                         onTap: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (_) =>
                                   ProviderDetailScreen(
-                                providerId: document.id,
+                                providerId:
+                                    document.id,
                                 name: name,
-                                specialty: category,
-                                rating:
-                                    rating.toStringAsFixed(1),
-                                description: description,
-                                location: location,
-                                priceRange: priceRange,
+                                specialty:
+                                    category,
+                                rating: rating
+                                    .toStringAsFixed(
+                                      1,
+                                    ),
+                                description:
+                                    description,
+                                location:
+                                    location,
+                                priceRange:
+                                    priceRange,
                               ),
                             ),
                           );
@@ -266,4 +475,18 @@ class _ProviderSearchScreenState
       ),
     );
   }
+}
+
+class _ServiceSearchResult {
+  final QueryDocumentSnapshot<
+      Map<String, dynamic>> document;
+
+  final Map<String, dynamic> provider;
+  final Map<String, String> service;
+
+  const _ServiceSearchResult({
+    required this.document,
+    required this.provider,
+    required this.service,
+  });
 }

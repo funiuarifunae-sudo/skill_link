@@ -32,15 +32,69 @@ class CategoriesScreen extends StatelessWidget {
     'IT and Tech Support': Icons.computer,
   };
 
+  Set<String> categoriesForProvider(
+    Map<String, dynamic> provider,
+  ) {
+    final categories = <String>{};
+
+    final savedCategories =
+        provider['serviceCategories'];
+
+    if (savedCategories is List) {
+      for (final category in savedCategories) {
+        if (category is String &&
+            category.trim().isNotEmpty) {
+          categories.add(category.trim());
+        }
+      }
+    }
+
+    final services = provider['services'];
+
+    if (services is List) {
+      for (final service in services) {
+        if (service is! Map) continue;
+
+        final serviceData =
+            Map<String, dynamic>.from(service);
+
+        final category =
+            serviceData['category'] as String? ?? '';
+
+        if (category.trim().isNotEmpty) {
+          categories.add(category.trim());
+        }
+      }
+    }
+
+    // Support provider profiles created before
+    // multiple services were introduced.
+    if (categories.isEmpty) {
+      final originalCategory =
+          provider['category'] as String? ?? '';
+
+      if (originalCategory.trim().isNotEmpty) {
+        categories.add(
+          originalCategory.trim(),
+        );
+      }
+    }
+
+    return categories;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final profilesStream = FirebaseFirestore.instance
-        .collection('providerProfiles')
-        .snapshots();
+    final profilesStream =
+        FirebaseFirestore.instance
+            .collection('providerProfiles')
+            .snapshots();
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Service Categories'),
+        title: const Text(
+          'Service Categories',
+        ),
       ),
       body: StreamBuilder<
           QuerySnapshot<Map<String, dynamic>>>(
@@ -49,7 +103,8 @@ class CategoriesScreen extends StatelessWidget {
           if (snapshot.hasError) {
             return Center(
               child: Text(
-                'Unable to load categories: ${snapshot.error}',
+                'Unable to load categories: '
+                '${snapshot.error}',
               ),
             );
           }
@@ -57,21 +112,33 @@ class CategoriesScreen extends StatelessWidget {
           if (snapshot.connectionState ==
               ConnectionState.waiting) {
             return const Center(
-              child: CircularProgressIndicator(),
+              child:
+                  CircularProgressIndicator(),
             );
           }
 
-          final profiles = snapshot.data?.docs ?? [];
-          final providerCounts = <String, int>{};
+          final profiles =
+              snapshot.data?.docs ?? [];
+
+          final providerCounts =
+              <String, int>{};
 
           for (final profile in profiles) {
-            final category =
-                profile.data()['category'] as String? ?? '';
+            final providerCategories =
+                categoriesForProvider(
+              profile.data(),
+            );
 
-            if (category.trim().isEmpty) continue;
-
-            providerCounts[category] =
-                (providerCounts[category] ?? 0) + 1;
+            // A provider is counted only once in each
+            // category, even if they added two services
+            // with the same category.
+            for (final category
+                in providerCategories) {
+              providerCounts[category] =
+                  (providerCounts[category] ??
+                          0) +
+                      1;
+            }
           }
 
           final allCategories = <String>{
@@ -79,13 +146,15 @@ class CategoriesScreen extends StatelessWidget {
             ...providerCounts.keys,
           }.toList();
 
-          final customCategories = allCategories
-              .where(
-                (category) =>
-                    !defaultCategories.contains(category),
-              )
-              .toList()
-            ..sort();
+          final customCategories =
+              allCategories
+                  .where(
+                    (category) =>
+                        !defaultCategories
+                            .contains(category),
+                  )
+                  .toList()
+                ..sort();
 
           final displayedCategories = [
             ...defaultCategories,
@@ -93,29 +162,34 @@ class CategoriesScreen extends StatelessWidget {
           ];
 
           return ListView(
-            padding: const EdgeInsets.all(16),
+            padding:
+                const EdgeInsets.all(16),
             children: [
               Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(18),
+                  padding:
+                      const EdgeInsets.all(18),
                   child: Row(
                     children: [
                       Icon(
                         Icons.explore,
                         size: 36,
-                        color:
-                            Theme.of(context).colorScheme.primary,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .primary,
                       ),
                       const SizedBox(width: 14),
                       const Expanded(
                         child: Column(
                           crossAxisAlignment:
-                              CrossAxisAlignment.start,
+                              CrossAxisAlignment
+                                  .start,
                           children: [
                             Text(
                               'Explore local services',
                               style: TextStyle(
-                                fontWeight: FontWeight.bold,
+                                fontWeight:
+                                    FontWeight.bold,
                                 fontSize: 18,
                               ),
                             ),
@@ -131,42 +205,50 @@ class CategoriesScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
-              ...displayedCategories.map((category) {
-                final providerCount =
-                    providerCounts[category] ?? 0;
 
-                return Card(
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      child: Icon(
-                        categoryIcons[category] ??
-                            Icons.work_outline,
-                      ),
-                    ),
-                    title: Text(category),
-                    subtitle: Text(
-                      providerCount == 0
-                          ? 'No providers yet'
-                          : '$providerCount '
-                              '${providerCount == 1 ? 'provider' : 'providers'}',
-                    ),
-                    trailing:
-                        const Icon(Icons.chevron_right),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              ProviderListScreen(
-                            category: category,
-                          ),
+              const SizedBox(height: 12),
+
+              ...displayedCategories.map(
+                (category) {
+                  final providerCount =
+                      providerCounts[category] ??
+                          0;
+
+                  return Card(
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        child: Icon(
+                          categoryIcons[
+                                  category] ??
+                              Icons.work_outline,
                         ),
-                      );
-                    },
-                  ),
-                );
-              }),
+                      ),
+                      title: Text(category),
+                      subtitle: Text(
+                        providerCount == 0
+                            ? 'No providers yet'
+                            : '$providerCount '
+                                '${providerCount == 1 ? 'provider' : 'providers'}',
+                      ),
+                      trailing: const Icon(
+                        Icons.chevron_right,
+                      ),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                ProviderListScreen(
+                              category:
+                                  category,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
             ],
           );
         },
