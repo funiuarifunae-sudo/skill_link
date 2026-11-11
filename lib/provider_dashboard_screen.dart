@@ -71,8 +71,24 @@ class ProviderDashboardScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Provider Dashboard'),
-      ),
+  title: const Text('Provider Dashboard'),
+  actions: [
+    IconButton(
+      tooltip: 'Log out',
+      onPressed: () async {
+        await FirebaseAuth.instance.signOut();
+
+        if (!context.mounted) return;
+
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/',
+          (route) => false,
+        );
+      },
+      icon: const Icon(Icons.logout),
+    ),
+  ],
+),
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
