@@ -1,9 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 
 class ProviderProfileFormScreen extends StatefulWidget {
   const ProviderProfileFormScreen({super.key});
@@ -33,6 +33,7 @@ class _ProviderProfileFormScreenState
   final _customCategoryController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _locationController = TextEditingController();
+  final _whatsappController = TextEditingController();
   final _priceRangeController = TextEditingController();
 
   String _selectedCategory = 'Tutors';
@@ -56,6 +57,7 @@ class _ProviderProfileFormScreenState
     _customCategoryController.dispose();
     _descriptionController.dispose();
     _locationController.dispose();
+    _whatsappController.dispose();
     _priceRangeController.dispose();
     super.dispose();
   }
@@ -90,6 +92,9 @@ class _ProviderProfileFormScreenState
         _locationController.text =
             data?['location'] as String? ?? '';
 
+        _whatsappController.text =
+            data?['whatsappNumber'] as String? ?? '';
+
         _priceRangeController.text =
             data?['priceRange'] as String? ?? '';
 
@@ -109,13 +114,16 @@ class _ProviderProfileFormScreenState
           _selectedCategory = 'Other Service';
 
           if (savedCategory != 'Other Service') {
-            _customCategoryController.text = savedCategory;
+            _customCategoryController.text =
+                savedCategory;
           }
         }
       }
     } catch (error) {
       if (mounted) {
-        _showMessage('Unable to load profile: $error');
+        _showMessage(
+          'Unable to load profile: $error',
+        );
       }
     } finally {
       if (mounted) {
@@ -159,7 +167,9 @@ class _ProviderProfileFormScreenState
       }
 
       if (permission == LocationPermission.denied) {
-        _showMessage('Location permission was denied');
+        _showMessage(
+          'Location permission was denied',
+        );
         return;
       }
 
@@ -179,62 +189,67 @@ class _ProviderProfileFormScreenState
           timeLimit: Duration(seconds: 20),
         ),
       );
-String detectedLocation;
 
-if (kIsWeb) {
-  // Reverse geocoding is unavailable through this package on Chrome.
-  // Coordinates still work with Google Maps.
-  detectedLocation =
-      '${position.latitude.toStringAsFixed(6)}, '
-      '${position.longitude.toStringAsFixed(6)}';
-} else {
-  try {
-    final geocoding = Geocoding();
+      String detectedLocation;
 
-final placemarks = await geocoding.placemarkFromCoordinates(
-  position.latitude,
-  position.longitude,
-);
-    if (placemarks.isNotEmpty) {
-      final place = placemarks.first;
+      if (kIsWeb) {
+        detectedLocation =
+            '${position.latitude.toStringAsFixed(6)}, '
+            '${position.longitude.toStringAsFixed(6)}';
+      } else {
+        try {
+          final geocoding = Geocoding();
 
-      final addressParts = <String>[
-        if ((place.street ?? '').isNotEmpty)
-          place.street!,
-        if ((place.subLocality ?? '').isNotEmpty)
-          place.subLocality!,
-        if ((place.locality ?? '').isNotEmpty)
-          place.locality!,
-        if ((place.administrativeArea ?? '').isNotEmpty)
-          place.administrativeArea!,
-        if ((place.postalCode ?? '').isNotEmpty)
-          place.postalCode!,
-      ];
+          final placemarks =
+              await geocoding.placemarkFromCoordinates(
+            position.latitude,
+            position.longitude,
+          );
 
-      detectedLocation = addressParts.toSet().join(', ');
-    } else {
-      detectedLocation =
-          '${position.latitude.toStringAsFixed(6)}, '
-          '${position.longitude.toStringAsFixed(6)}';
-    }
-  } catch (_) {
-    detectedLocation =
-        '${position.latitude.toStringAsFixed(6)}, '
-        '${position.longitude.toStringAsFixed(6)}';
-  }
-}
+          if (placemarks.isNotEmpty) {
+            final place = placemarks.first;
 
-if (!mounted) return;
+            final addressParts = <String>[
+              if ((place.street ?? '').isNotEmpty)
+                place.street!,
+              if ((place.subLocality ?? '').isNotEmpty)
+                place.subLocality!,
+              if ((place.locality ?? '').isNotEmpty)
+                place.locality!,
+              if ((place.administrativeArea ?? '')
+                  .isNotEmpty)
+                place.administrativeArea!,
+              if ((place.postalCode ?? '').isNotEmpty)
+                place.postalCode!,
+            ];
 
-setState(() {
-  _latitude = position.latitude;
-  _longitude = position.longitude;
-  _locationController.text = detectedLocation;
-});
+            detectedLocation =
+                addressParts.toSet().join(', ');
+          } else {
+            detectedLocation =
+                '${position.latitude.toStringAsFixed(6)}, '
+                '${position.longitude.toStringAsFixed(6)}';
+          }
+        } catch (_) {
+          detectedLocation =
+              '${position.latitude.toStringAsFixed(6)}, '
+              '${position.longitude.toStringAsFixed(6)}';
+        }
+      }
 
-_showMessage(
-  'Location detected. Check the address, then save your profile.',
-);
+      if (!mounted) return;
+
+      setState(() {
+        _latitude = position.latitude;
+        _longitude = position.longitude;
+        _locationController.text =
+            detectedLocation;
+      });
+
+      _showMessage(
+        'Location detected. Check the address, '
+        'then save your profile.',
+      );
     } catch (error) {
       if (mounted) {
         _showMessage(
@@ -250,6 +265,19 @@ _showMessage(
     }
   }
 
+  String _normaliseWhatsappNumber(String input) {
+    var digits = input.replaceAll(
+      RegExp(r'[^0-9]'),
+      '',
+    );
+
+    if (digits.startsWith('0')) {
+      digits = '27${digits.substring(1)}';
+    }
+
+    return digits;
+  }
+
   Future<void> _saveProfile() async {
     final user = FirebaseAuth.instance.currentUser;
 
@@ -261,6 +289,11 @@ _showMessage(
 
     final location =
         _locationController.text.trim();
+
+    final whatsappNumber =
+        _normaliseWhatsappNumber(
+      _whatsappController.text.trim(),
+    );
 
     final priceRange =
         _priceRangeController.text.trim();
@@ -279,8 +312,18 @@ _showMessage(
         category.isEmpty ||
         description.isEmpty ||
         location.isEmpty ||
+        whatsappNumber.isEmpty ||
         priceRange.isEmpty) {
       _showMessage('Please complete all fields');
+      return;
+    }
+
+    if (whatsappNumber.length < 9 ||
+        whatsappNumber.length > 15) {
+      _showMessage(
+        'Enter a valid WhatsApp number, for example '
+        '0712345678 or +27712345678',
+      );
       return;
     }
 
@@ -307,6 +350,7 @@ _showMessage(
         'category': category,
         'description': description,
         'location': location,
+        'whatsappNumber': whatsappNumber,
         'priceRange': priceRange,
 
         if (_latitude != null &&
@@ -556,6 +600,26 @@ _showMessage(
                               ],
                             ),
                           ],
+
+                          const SizedBox(height: 16),
+
+                          TextField(
+                            controller:
+                                _whatsappController,
+                            keyboardType:
+                                TextInputType.phone,
+                            decoration:
+                                const InputDecoration(
+                              labelText:
+                                  'WhatsApp number',
+                              hintText:
+                                  'Example: 0712345678 or +27712345678',
+                              prefixIcon:
+                                  Icon(Icons.phone),
+                              helperText:
+                                  'Customers can use this number to contact you',
+                            ),
+                          ),
 
                           const SizedBox(height: 16),
 
